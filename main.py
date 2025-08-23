@@ -162,7 +162,7 @@ async def start_handler(message: types.Message):
             kb.add("❌ Kodni o‘chirish", "📄 Kodlar ro‘yxati")
             kb.add("✏️ Kodni tahrirlash", "📤 Post qilish")
             kb.add("📢 Habar yuborish", "📘 Qo‘llanma")
-            kb.add("➕ Admin qo‘shish", "🏆 Konkurs")
+            kb.add("➕ Admin qo‘shish")
             kb.add("📥 User qo‘shish", "📡 Kanal boshqaruvi")
             kb.add("📦 Bazani olish")
             await message.answer(f"👮‍♂️ Admin panel:\n🆔 Sizning ID: <code>{user_id}</code>", reply_markup=kb, parse_mode="HTML")
