@@ -11,11 +11,7 @@ db_pool = None
 async def init_db():
     global db_pool
     db_pool = await asyncpg.create_pool(
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        database=os.getenv("DB_NAME"),
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT"))
+        dsn=os.getenv("DATABASE_URL")  # ✅ faqat URL ishlatilyapti
     )
 
     async with db_pool.acquire() as conn:
@@ -60,7 +56,6 @@ async def init_db():
                 "INSERT INTO admins (user_id) VALUES ($1) ON CONFLICT DO NOTHING",
                 admin_id
             )
-
 
 # === Foydalanuvchi qo'shish ===
 async def add_user(user_id):
