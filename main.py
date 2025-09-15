@@ -27,7 +27,7 @@ keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
 CHANNELS = ["@AniVerseClip", "@occean_dubbing"]
-MAIN_CHANNELS = []
+MAIN_CHANNELS = os.getenv("MAIN_CHANNELS").split(",")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 
 bot = Bot(token=API_TOKEN)
@@ -162,9 +162,7 @@ async def start_handler(message: types.Message):
             kb.add("❌ Kodni o‘chirish", "📄 Kodlar ro‘yxati")
             kb.add("✏️ Kodni tahrirlash", "📤 Post qilish")
             kb.add("📢 Habar yuborish", "📘 Qo‘llanma")
-            kb.add("➕ Admin qo‘shish")
-            kb.add("📥 User qo‘shish", "📡 Kanal boshqaruvi")
-            kb.add("📦 Bazani olish")
+            kb.add("➕ Admin qo‘shish", "📡 Kanal boshqaruvi")
             await message.answer(f"👮‍♂️ Admin panel:\n🆔 Sizning ID: <code>{user_id}</code>", reply_markup=kb, parse_mode="HTML")
         else:
             kb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
