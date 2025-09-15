@@ -34,7 +34,7 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-ADMINS = {6486825926, 7137566109}
+ADMINS = {6486825926, 8398576854}
 
 class AdminStates(StatesGroup):
     waiting_for_kino_data = State()
