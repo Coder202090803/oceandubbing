@@ -27,7 +27,7 @@ keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
 CHANNELS = [-1002168256708]
-LINKS = ["https://t.me/anilord_1",]
+LINKS = ["https://t.me/anilord_1"]
 MAIN_CHANNELS = [-1002168256708]
 MAIN_LINKS = ["https://t.me/anilord_1"]
 BOT_USERNAME = os.getenv("BOT_USERNAME")
