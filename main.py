@@ -203,13 +203,6 @@ async def check_subscription_callback(call: CallbackQuery):
         await send_reklama_post(call.from_user.id, code)
         await increment_stat(code, "searched")
 
-@dp.message_handler(lambda m: m.text == "📡 Kanal boshqaruvi", user_id=ADMINS)
-async def kanal_menu(message: types.Message):
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("➕ Kanal qo‘shish", "📋 Kanal ro‘yxati")
-    kb.add("❌ Kanal o‘chirish", "⬅️ Orqaga")
-    await message.answer("📡 Kanal menyusi:", reply_markup=kb)
-
 # === Kanal boshqaruvi menyusi ===
 @dp.message_handler(lambda m: m.text == "📡 Kanal boshqaruvi", user_id=ADMINS)
 async def kanal_boshqaruvi(message: types.Message):
