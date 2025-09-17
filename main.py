@@ -27,9 +27,9 @@ keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
 CHANNELS = [-1002168256708, -1002157248666]
-LINKS = ["https://t.me/anilord_1", "https://t.me/Minogra_Apokalipsisi_1"]
+LINKS = ["https://t.me/anilord_1","https://t.me/Minogra_Apokalipsisi_1"]
 MAIN_CHANNELS = [-1002168256708, -1002157248666]
-MAIN_LINKS = ["https://t.me/anilord_1", "https://t.me/Minogra_Apokalipsisi_1"]
+MAIN_LINKS = ["https://t.me/anilord_1","https://t.me/Minogra_Apokalipsisi_1"]
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 
 bot = Bot(token=API_TOKEN)
