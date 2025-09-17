@@ -26,8 +26,10 @@ load_dotenv()
 keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
-CHANNELS = ["@AniVerseClip", "@occean_dubbing"]
-MAIN_CHANNELS = os.getenv("MAIN_CHANNELS").split(",")
+CHANNELS = [-1002168256708, -1002157248666]
+LINKS = ["https://t.me/anilord_1", "https://t.me/Minogra_Apokalipsisi_1"]
+MAIN_CHANNELS = [-1002168256708, -1002157248666]
+MAIN_LINKS = ["https://t.me/anilord_1", "https://t.me/Minogra_Apokalipsisi_1"]
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 
 bot = Bot(token=API_TOKEN)
@@ -36,13 +38,13 @@ dp = Dispatcher(bot, storage=storage)
 
 ADMINS = {6486825926, 8398576854}
 
+# === HOLATLAR ===
 class AdminStates(StatesGroup):
     waiting_for_kino_data = State()
     waiting_for_delete_code = State()
     waiting_for_stat_code = State()
     waiting_for_broadcast_data = State()
     waiting_for_admin_id = State()
-    waiting_for_user_list = State()
 
 class AdminReplyStates(StatesGroup):
     waiting_for_reply_message = State()
@@ -51,20 +53,22 @@ class EditCode(StatesGroup):
     WaitingForOldCode = State()
     WaitingForNewCode = State()
     WaitingForNewTitle = State()
-    
+
 class UserStates(StatesGroup):
     waiting_for_admin_message = State()
 
 class SearchStates(StatesGroup):
     waiting_for_anime_name = State()
-    
+
 class PostStates(StatesGroup):
     waiting_for_image = State()
     waiting_for_title = State()
     waiting_for_link = State()
+    waiting_for_button_text = State() 
     
 class KanalStates(StatesGroup):
-    waiting_for_channel = State()
+    waiting_for_channel_id = State()
+    waiting_for_channel_link = State()
 
 async def make_subscribe_markup(code):
     keyboard = InlineKeyboardMarkup(row_width=1)
@@ -206,59 +210,159 @@ async def kanal_menu(message: types.Message):
     kb.add("❌ Kanal o‘chirish", "⬅️ Orqaga")
     await message.answer("📡 Kanal menyusi:", reply_markup=kb)
 
+# === Kanal boshqaruvi menyusi ===
+@dp.message_handler(lambda m: m.text == "📡 Kanal boshqaruvi", user_id=ADMINS)
+async def kanal_boshqaruvi(message: types.Message):
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("🔗 Majburiy obuna", callback_data="channel_type:sub"),
+        InlineKeyboardButton("📌 Asosiy kanallar", callback_data="channel_type:main")
+    )
+    await message.answer("📡 Qaysi kanal turini boshqarasiz?", reply_markup=kb)
 
-# === ➕ KANAL QO‘SHISH ===
-@dp.message_handler(lambda m: m.text == "➕ Kanal qo‘shish", user_id=ADMINS)
-async def add_channel_start(message: types.Message):
-    await KanalStates.waiting_for_channel.set()
-    await message.answer("📎 Kanal username yuboring (masalan: @mychannel):")
 
-@dp.message_handler(state=KanalStates.waiting_for_channel, user_id=ADMINS)
-async def add_channel_finish(message: types.Message, state: FSMContext):
-    channel = message.text.strip()
-    if not channel.startswith("@"):
-        await message.answer("❗ Kanal @ bilan boshlanishi kerak.")
+# === Kanal turi tanlanadi ===
+@dp.callback_query_handler(lambda c: c.data.startswith("channel_type:"), user_id=ADMINS)
+async def select_channel_type(callback: types.CallbackQuery, state: FSMContext):
+    ctype = callback.data.split(":")[1]
+    await state.update_data(channel_type=ctype)
+
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("➕ Kanal qo‘shish", callback_data="action:add"),
+        InlineKeyboardButton("📋 Kanal ro‘yxati", callback_data="action:list")
+    )
+    kb.add(
+        InlineKeyboardButton("❌ Kanal o‘chirish", callback_data="action:delete"),
+        InlineKeyboardButton("⬅️ Orqaga", callback_data="action:back")
+    )
+
+    text = "📡 Majburiy obuna kanallari menyusi:" if ctype == "sub" else "📌 Asosiy kanallar menyusi:"
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+
+# === Actionlarni boshqarish ===
+@dp.callback_query_handler(lambda c: c.data.startswith("action:"), user_id=ADMINS)
+async def channel_actions(callback: types.CallbackQuery, state: FSMContext):
+    action = callback.data.split(":")[1]
+    data = await state.get_data()
+    ctype = data.get("channel_type")
+
+    if not ctype:
+        await callback.answer("❗ Avval kanal turini tanlang.")
         return
-    if channel in CHANNELS:
-        await message.answer("ℹ️ Bu kanal allaqachon ro‘yxatda bor.")
+
+    # ➕ Kanal qo‘shish
+    if action == "add":
+        await KanalStates.waiting_for_channel_id.set()
+        await callback.message.answer("🆔 Kanal ID yuboring (masalan: -1001234567890):")
+
+    # 📋 Kanal ro‘yxati
+    elif action == "list":
+        if ctype == "sub":
+            channels = list(zip(CHANNELS, LINKS))
+            title = "📋 Majburiy obuna kanallari:\n\n"
+        else:
+            channels = list(zip(MAIN_CHANNELS, MAIN_LINKS))
+            title = "📌 Asosiy kanallar:\n\n"
+
+        if not channels:
+            await callback.message.answer("📭 Hali kanal yo‘q.")
+        else:
+            text = title + "\n".join(
+                f"{i}. 🆔 {cid}\n   🔗 {link}" for i, (cid, link) in enumerate(channels, 1)
+            )
+            await callback.message.answer(text)
+
+    # ❌ Kanal o‘chirish
+    elif action == "delete":
+        if ctype == "sub":
+            channels = list(zip(CHANNELS, LINKS))
+            prefix = "del_sub"
+        else:
+            channels = list(zip(MAIN_CHANNELS, MAIN_LINKS))
+            prefix = "del_main"
+
+        if not channels:
+            await callback.message.answer("📭 Hali kanal yo‘q.")
+            return
+
+        kb = InlineKeyboardMarkup()
+        for cid, link in channels:
+            kb.add(InlineKeyboardButton(f"O‘chirish: {cid}", callback_data=f"{prefix}:{cid}"))
+        await callback.message.answer("❌ Qaysi kanalni o‘chirmoqchisiz?", reply_markup=kb)
+
+    # ⬅️ Orqaga
+    elif action == "back":
+        await kanal_boshqaruvi(callback.message)
+
+    await callback.answer()
+
+
+# === 1. Kanal ID qabul qilish ===
+@dp.message_handler(state=KanalStates.waiting_for_channel_id, user_id=ADMINS)
+async def add_channel_id(message: types.Message, state: FSMContext):
+    try:
+        channel_id = int(message.text.strip())
+        await state.update_data(channel_id=channel_id)
+        await KanalStates.waiting_for_channel_link.set()
+        await message.answer("🔗 Endi kanal linkini yuboring (masalan: https://t.me/+invitehash):")
+    except ValueError:
+        await message.answer("❗ Faqat sonlardan iborat ID yuboring (masalan: -1001234567890).")
+
+
+# === 2. Kanal linkini qabul qilish va saqlash ===
+@dp.message_handler(state=KanalStates.waiting_for_channel_link, user_id=ADMINS)
+async def add_channel_finish(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    ctype = data.get("channel_type")
+    channel_id = data.get("channel_id")
+    channel_link = message.text.strip()
+
+    if not channel_link.startswith("http"):
+        await message.answer("❗ To‘liq link yuboring (masalan: https://t.me/...)")
+        return
+
+    if ctype == "sub":
+        if channel_id in CHANNELS:
+            await message.answer("ℹ️ Bu kanal allaqachon qo‘shilgan.")
+        else:
+            CHANNELS.append(channel_id)
+            LINKS.append(channel_link)
+            await message.answer(f"✅ Kanal qo‘shildi!\n🆔 {channel_id}\n🔗 {channel_link}")
     else:
-        CHANNELS.append(channel)
-        await message.answer(f"✅ {channel} kanal qo‘shildi.")
+        if channel_id in MAIN_CHANNELS:
+            await message.answer("ℹ️ Bu kanal allaqachon qo‘shilgan.")
+        else:
+            MAIN_CHANNELS.append(channel_id)
+            MAIN_LINKS.append(channel_link)
+            await message.answer(f"✅ Asosiy kanal qo‘shildi!\n🆔 {channel_id}\n🔗 {channel_link}")
+
     await state.finish()
 
 
-# === 📋 KANAL RO‘YXATI ===
-@dp.message_handler(lambda m: m.text == "📋 Kanal ro‘yxati", user_id=ADMINS)
-async def list_channels(message: types.Message):
-    if not CHANNELS:
-        await message.answer("📭 Hozircha hech qanday kanal yo‘q.")
-        return
-    text = "📋 Majburiy obuna kanallari:\n\n"
-    for i, ch in enumerate(CHANNELS, 1):
-        text += f"{i}. {ch}\n"
-    await message.answer(text)
+# === Kanalni o‘chirish ===
+@dp.callback_query_handler(lambda c: c.data.startswith("del_"), user_id=ADMINS)
+async def delete_channel(callback: types.CallbackQuery):
+    action, cid = callback.data.split(":")
+    cid = int(cid)
 
+    if action == "del_sub":
+        if cid in CHANNELS:
+            idx = CHANNELS.index(cid)
+            CHANNELS.pop(idx)
+            LINKS.pop(idx)
+            await callback.message.answer(f"❌ Kanal o‘chirildi!\n🆔 {cid}")
+    elif action == "del_main":
+        if cid in MAIN_CHANNELS:
+            idx = MAIN_CHANNELS.index(cid)
+            MAIN_CHANNELS.pop(idx)
+            MAIN_LINKS.pop(idx)
+            await callback.message.answer(f"❌ Asosiy kanal o‘chirildi!\n🆔 {cid}")
 
-# === ❌ KANAL O‘CHIRISH ===
-@dp.message_handler(lambda m: m.text == "❌ Kanal o‘chirish", user_id=ADMINS)
-async def delete_channel_start(message: types.Message):
-    if not CHANNELS:
-        await message.answer("📭 Hozircha hech qanday kanal yo‘q.")
-        return
-    kb = InlineKeyboardMarkup()
-    for ch in CHANNELS:
-        kb.add(InlineKeyboardButton(f"O‘chirish: {ch}", callback_data=f"delch:{ch}"))
-    await message.answer("❌ Qaysi kanalni o‘chirmoqchisiz?", reply_markup=kb)
+    await callback.answer("O‘chirildi ✅")
 
-@dp.callback_query_handler(lambda c: c.data.startswith("delch:"), user_id=ADMINS)
-async def delete_channel_confirm(callback: types.CallbackQuery):
-    channel = callback.data.split(":", 1)[1]
-    if channel in CHANNELS:
-        CHANNELS.remove(channel)
-        await callback.message.edit_text(f"✅ {channel} o‘chirildi.")
-    else:
-        await callback.message.edit_text("⚠️ Bu kanal topilmadi.")
-    await callback.answer()
 
 # === 🎞 Barcha animelar tugmasi
 @dp.message_handler(lambda m: m.text == "🎞 Barcha animelar")
