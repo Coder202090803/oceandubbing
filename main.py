@@ -82,11 +82,12 @@ async def make_subscribe_markup(code):
     return keyboard
 
 
-async def get_unsubscribed_channels(user_id):
+async def get_unsubscribed_channels(user_id: int):
+    """Foydalanuvchi majburiy obuna kanallariga aʼzo bo‘lmaganlarini ro‘yxatga qaytaradi."""
     unsubscribed = []
     for channel in CHANNELS:
         try:
-            member = await bot.get_chat_member(channel.strip(), user_id)
+            member = await bot.get_chat_member(int(channel), user_id)
             if member.status not in ["member", "administrator", "creator"]:
                 unsubscribed.append(channel)
         except Exception as e:
@@ -94,27 +95,30 @@ async def get_unsubscribed_channels(user_id):
             unsubscribed.append(channel)
     return unsubscribed
 
-async def is_user_subscribed(user_id):
+
+async def is_user_subscribed(user_id: int) -> bool:
+    """Foydalanuvchi barcha majburiy kanallarga aʼzo ekanini tekshiradi."""
     for channel in CHANNELS:
         try:
-            member = await bot.get_chat_member(channel.strip(), user_id)
+            member = await bot.get_chat_member(int(channel), user_id)
             if member.status not in ["member", "administrator", "creator"]:
                 return False
         except Exception as e:
             print(f"❗ Obuna holatini aniqlab bo‘lmadi: {channel} -> {e}")
             return False
     return True
-    
+
+
 async def make_unsubscribed_markup(user_id: int, code: str):
+    """Foydalanuvchi aʼzo bo‘lmagan kanallarga havola chiqaruvchi tugmalarni yaratadi."""
     markup = InlineKeyboardMarkup(row_width=1)
     unsubscribed = await get_unsubscribed_channels(user_id)
 
     for ch in unsubscribed:
         try:
-            chat = await bot.get_chat(ch.strip())
-            invite_link = chat.invite_link or await bot.export_chat_invite_link(chat.id)
-            title = chat.title or ch
-            markup.add(InlineKeyboardButton(f"➕ {title}", url=invite_link))
+            chat = await bot.get_chat(int(ch))
+            invite = await bot.create_chat_invite_link(chat.id)
+            markup.add(InlineKeyboardButton(f"➕ {chat.title}", url=invite.invite_link))
         except Exception as e:
             print(f"❗ Kanal linkini olishda xatolik: {ch} -> {e}")
 
@@ -184,6 +188,7 @@ async def start_handler(message: types.Message):
 
 @dp.callback_query_handler(lambda c: c.data.startswith("checksub:"))
 async def check_subscription_callback(call: CallbackQuery):
+    """Foydalanuvchi '✅ Tekshirish' tugmasini bosganda obuna holatini qayta tekshiradi."""
     code = call.data.split(":")[1]
     unsubscribed = await get_unsubscribed_channels(call.from_user.id)
 
@@ -191,9 +196,9 @@ async def check_subscription_callback(call: CallbackQuery):
         markup = InlineKeyboardMarkup(row_width=1)
         for ch in unsubscribed:
             try:
-                channel = await bot.get_chat(ch.strip())
-                invite_link = channel.invite_link or (await channel.export_invite_link())
-                markup.add(InlineKeyboardButton(f"➕ {channel.title}", url=invite_link))
+                chat = await bot.get_chat(int(ch))
+                invite = await bot.create_chat_invite_link(chat.id)
+                markup.add(InlineKeyboardButton(f"➕ {chat.title}", url=invite.invite_link))
             except Exception as e:
                 print(f"❗ Kanalni olishda xatolik: {ch} -> {e}")
         markup.add(InlineKeyboardButton("✅ Yana tekshirish", callback_data=f"checksub:{code}"))
