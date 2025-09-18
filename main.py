@@ -150,8 +150,8 @@ async def start_handler(message: types.Message):
     else:
         kb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
         kb.add(KeyboardButton("🎞 Barcha animelar"), KeyboardButton("✉️ Admin bilan bog‘lanish"))
-          await message.answer(
-                f"🎬 Botga xush kelibsiz!\n🆔 Sizning ID: <code>{user_id}</code>\nKod kiriting:",
+        await message.answer(
+                f"🎬 Botga xush kelibsiz!\n🆔 Sizning ID: <code>{message.from_user.id}</code>\nKod kiriting:",
                 reply_markup=kb,
                 parse_mode="HTML"
             )
