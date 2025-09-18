@@ -38,6 +38,25 @@ dp = Dispatcher(bot, storage=storage)
 
 ADMINS = {6486825926, 8398576854}
 
+# === KEYBOARDS ===
+def admin_keyboard():
+    """Asosiy admin paneli — 'Boshqarish' tugmasi MAVJUD EMAS"""
+    kb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add("➕ Anime qo‘shish")
+    kb.add("📊 Statistika", "📈 Kod statistikasi")
+    kb.add("❌ Kodni o‘chirish", "📄 Kodlar ro‘yxati")
+    kb.add("✏️ Kodni tahrirlash", "📤 Post qilish")
+    kb.add("📢 Habar yuborish", "📘 Qo‘llanma")
+    kb.add("➕ Admin qo‘shish", "📡 Kanal boshqaruvi")
+    return kb
+
+def control_keyboard():
+    """Faol jarayonlarda foydalaniladigan 'Boshqarish' tugmasi"""
+    return ReplyKeyboardMarkup(resize_keyboard=True).add("📡 Boshqarish")
+
+async def send_admin_panel(message: types.Message):
+    await message.answer("👮‍♂️ Admin panel:", reply_markup=admin_keyboard())
+
 # === HOLATLAR ===
 class AdminStates(StatesGroup):
     waiting_for_kino_data = State()
@@ -70,139 +89,92 @@ class KanalStates(StatesGroup):
     waiting_for_channel_id = State()
     waiting_for_channel_link = State()
 
-async def make_subscribe_markup(code):
-    keyboard = InlineKeyboardMarkup(row_width=1)
-    for channel in CHANNELS:
-        try:
-            invite_link = await bot.create_chat_invite_link(channel.strip())
-            keyboard.add(InlineKeyboardButton("📢 Obuna bo‘lish", url=invite_link.invite_link))
-        except Exception as e:
-            print(f"❌ Link yaratishda xatolik: {channel} -> {e}")
-    keyboard.add(InlineKeyboardButton("✅ Tekshirish", callback_data=f"check_sub:{code}"))
-    return keyboard
-
-
-async def get_unsubscribed_channels(user_id: int):
-    """Foydalanuvchi majburiy obuna kanallariga aʼzo bo‘lmaganlarini ro‘yxatga qaytaradi."""
+# === OBUNA TEKSHIRISH ===
+async def get_unsubscribed_channels(user_id):
     unsubscribed = []
-    for channel in CHANNELS:
+    for idx, channel_id in enumerate(CHANNELS):
         try:
-            member = await bot.get_chat_member(int(channel), user_id)
+            member = await bot.get_chat_member(channel_id, user_id)
             if member.status not in ["member", "administrator", "creator"]:
-                unsubscribed.append(channel)
+                unsubscribed.append((channel_id, LINKS[idx]))
         except Exception as e:
-            print(f"❗ Obuna tekshirishda xatolik: {channel} -> {e}")
-            unsubscribed.append(channel)
+            print(f"❗️ Obuna tekshirishda xatolik: {channel_id} -> {e}")
+            unsubscribed.append((channel_id, LINKS[idx]))
     return unsubscribed
 
 
-async def is_user_subscribed(user_id: int) -> bool:
-    """Foydalanuvchi barcha majburiy kanallarga aʼzo ekanini tekshiradi."""
-    for channel in CHANNELS:
-        try:
-            member = await bot.get_chat_member(int(channel), user_id)
-            if member.status not in ["member", "administrator", "creator"]:
-                return False
-        except Exception as e:
-            print(f"❗ Obuna holatini aniqlab bo‘lmadi: {channel} -> {e}")
-            return False
-    return True
-
-
-async def make_unsubscribed_markup(user_id: int, code: str):
-    """Foydalanuvchi aʼzo bo‘lmagan kanallarga havola chiqaruvchi tugmalarni yaratadi."""
-    markup = InlineKeyboardMarkup(row_width=1)
+# === OBUNA BO‘LMAGANLAR MARKUP ===
+async def make_unsubscribed_markup(user_id, code):
     unsubscribed = await get_unsubscribed_channels(user_id)
+    markup = InlineKeyboardMarkup(row_width=1)
 
-    for ch in unsubscribed:
+    for channel_id, channel_link in unsubscribed:
         try:
-            chat = await bot.get_chat(int(ch))
-            invite = await bot.create_chat_invite_link(chat.id)
-            markup.add(InlineKeyboardButton(f"➕ {chat.title}", url=invite.invite_link))
+            chat = await bot.get_chat(channel_id)
+            markup.add(
+                InlineKeyboardButton(f"➕ {chat.title}", url=channel_link)
+            )
         except Exception as e:
-            print(f"❗ Kanal linkini olishda xatolik: {ch} -> {e}")
+            print(f"❗️ Kanal tugmasini yaratishda xatolik: {channel_id} -> {e}")
 
+    # Tekshirish tugmasi
     markup.add(InlineKeyboardButton("✅ Tekshirish", callback_data=f"checksub:{code}"))
     return markup
 
+
+# === /start HANDLER ===
 @dp.message_handler(commands=['start'])
 async def start_handler(message: types.Message):
-    user_id = message.from_user.id
-    args = (message.get_args() or "").strip()
+    await add_user(message.from_user.id)
+    args = message.get_args()
 
-    try:
-        await add_user(user_id)
-    except Exception as e:
-        print(f"[add_user] {user_id} -> {e}")
-    try:
-        unsubscribed = await get_unsubscribed_channels(user_id)
-    except Exception as e:
-        print(f"[subs_check] {user_id} -> {e}")
-        unsubscribed = []
-
-    if unsubscribed:
-    # faqat obuna bo‘lmaganlarni chiqaramiz
-        markup = await make_unsubscribed_markup(user_id, args)
-        await message.answer(
-            "❗ Botdan foydalanish uchun quyidagi kanal(lar)ga obuna bo‘ling:",
-            reply_markup=markup
-        )
-        return
-        
     if args and args.isdigit():
         code = args
-        try:
-            await increment_stat(code, "searched")
-        except Exception as e:
-            print(f"[increment_stat] {code} -> {e}")
-        try:
-            await send_reklama_post(user_id, code)
-        except Exception as e:
-            print(f"[send_reklama_post] {user_id}, code={code} -> {e}")
-            await message.answer("⚠️ Postni yuborishda muammo bo‘ldi. Keyinroq urinib ko‘ring.")
-        return
-        
-    try:
-        if user_id in ADMINS:
-            kb = ReplyKeyboardMarkup(resize_keyboard=True)
-            kb.add("➕ Anime qo‘shish")
-            kb.add("📊 Statistika", "📈 Kod statistikasi")
-            kb.add("❌ Kodni o‘chirish", "📄 Kodlar ro‘yxati")
-            kb.add("✏️ Kodni tahrirlash", "📤 Post qilish")
-            kb.add("📢 Habar yuborish", "📘 Qo‘llanma")
-            kb.add("➕ Admin qo‘shish", "📡 Kanal boshqaruvi")
-            await message.answer(f"👮‍♂️ Admin panel:\n🆔 Sizning ID: <code>{user_id}</code>", reply_markup=kb, parse_mode="HTML")
-        else:
-            kb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-            kb.add(
-                KeyboardButton("🎞 Barcha animelar"),
-                KeyboardButton("✉️ Admin bilan bog‘lanish")
-            )
+        await increment_stat(code, "init")
+        await increment_stat(code, "searched")
+
+        unsubscribed = await get_unsubscribed_channels(message.from_user.id)
+        if unsubscribed:
+            markup = await make_unsubscribed_markup(message.from_user.id, code)
             await message.answer(
+                "❗️ Animeni olishdan oldin quyidagi kanal(lar)ga obuna bo‘ling:",
+                reply_markup=markup
+            )
+        else:
+            await send_reklama_post(message.from_user.id, code)
+            await increment_stat(code, "searched")
+        return
+
+    if message.from_user.id in ADMINS:
+        await send_admin_panel(message)
+    else:
+        kb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+        kb.add(KeyboardButton("🎞 Barcha animelar"), KeyboardButton("✉️ Admin bilan bog‘lanish"))
+          await message.answer(
                 f"🎬 Botga xush kelibsiz!\n🆔 Sizning ID: <code>{user_id}</code>\nKod kiriting:",
                 reply_markup=kb,
                 parse_mode="HTML"
             )
-    except Exception as e:
-        print(f"[menu] {user_id} -> {e}")
 
+# === TEKSHIRUV CALLBACK ===
 @dp.callback_query_handler(lambda c: c.data.startswith("checksub:"))
 async def check_subscription_callback(call: CallbackQuery):
-    """Foydalanuvchi '✅ Tekshirish' tugmasini bosganda obuna holatini qayta tekshiradi."""
     code = call.data.split(":")[1]
     unsubscribed = await get_unsubscribed_channels(call.from_user.id)
 
     if unsubscribed:
         markup = InlineKeyboardMarkup(row_width=1)
-        for ch in unsubscribed:
+        for channel_id, channel_link in unsubscribed:
             try:
-                chat = await bot.get_chat(int(ch))
-                invite = await bot.create_chat_invite_link(chat.id)
-                markup.add(InlineKeyboardButton(f"➕ {chat.title}", url=invite.invite_link))
+                chat = await bot.get_chat(channel_id)
+                markup.add(
+                    InlineKeyboardButton(f"➕ {chat.title}", url=channel_link)
+                )
             except Exception as e:
-                print(f"❗ Kanalni olishda xatolik: {ch} -> {e}")
+                print(f"❗️ Kanal tugmasini qayta yaratishda xatolik: {channel_id} -> {e}")
+
         markup.add(InlineKeyboardButton("✅ Yana tekshirish", callback_data=f"checksub:{code}"))
-        await call.message.edit_text("❗ Obuna bo‘lmagan kanal(lar):", reply_markup=markup)
+        await call.message.edit_text("❗️ Hali ham obuna bo‘lmagan kanal(lar):", reply_markup=markup)
     else:
         await call.message.delete()
         await send_reklama_post(call.from_user.id, code)
